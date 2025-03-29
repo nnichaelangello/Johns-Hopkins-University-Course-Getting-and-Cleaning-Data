@@ -1,0 +1,75 @@
+```{r}
+install.packages("dplyr")
+```
+```{r}
+library(dplyr)
+```
+
+# Download and unzip dataset
+```{r}
+url <- "https://d396qusza40orc.cloudfront.net/getdata%2Fprojectfiles%2FUCI%20HAR%20Dataset.zip"
+filename <- "dataset.zip"
+```
+
+```{r}
+if (!file.exists(filename)) {
+  download.file(url, destfile = filename, method = "curl")
+}
+
+if (!file.exists("UCI HAR Dataset")) {
+  unzip(filename)
+}
+```
+
+# Load activity labels and features
+```{r}
+activity_labels <- read.table("UCI HAR Dataset/activity_labels.txt", col.names = c("id", "activity"))
+features <- read.table("UCI HAR Dataset/features.txt", col.names = c("id", "feature"))
+```
+
+# Extract mean and standard deviation features
+```{r}
+mean_std_features <- grep("-(mean|std)\\(\\)", features$feature)
+```
+
+# Load and merge training and test datasets
+```{r}
+load_data <- function(type) {
+  x <- read.table(paste0("UCI HAR Dataset/", type, "/X_", type, ".txt"))[, mean_std_features]
+  y <- read.table(paste0("UCI HAR Dataset/", type, "/y_", type, ".txt"), col.names = "activity_id")
+  subject <- read.table(paste0("UCI HAR Dataset/", type, "/subject_", type, ".txt"), col.names = "subject")
+  data <- cbind(subject, y, x)
+  return(data)
+}
+
+train_data <- load_data("train")
+test_data <- load_data("test")
+```
+
+# Combine the datasets
+```{r}
+merged_data <- rbind(train_data, test_data)
+```
+
+# Use descriptive activity names
+```{r}
+merged_data <- merge(merged_data, activity_labels, by.x = "activity_id", by.y = "id")
+```
+
+# Label dataset with descriptive variable names
+```{r}
+colnames(merged_data)[3:(length(mean_std_features) + 2)] <- features$feature[mean_std_features]
+```
+
+# Create tidy dataset with averages
+```{r}
+tidy_data <- merged_data %>%
+  select(-activity_id) %>%
+  group_by(subject, activity) %>%
+  summarise_all(mean)
+```
+
+# Save the tidy dataset
+```{r}
+write.table(tidy_data, "tidy_data.txt", row.names = FALSE)
+```
